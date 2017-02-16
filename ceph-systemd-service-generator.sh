@@ -3,7 +3,8 @@ SYSTEMD_ETC_DIR="/etc/systemd/system"
 SYSTEMD_USR_DIR="/usr/lib/systemd/system"
 
 cd $SYSTEMD_USR_DIR
-rm -f ceph-*.service
+rm -f ceph-mon*.service
+rm -f ceph-osd*.service
 rm -f ceph*.target
 
 for CONF in /etc/ceph/ceph*.conf; do

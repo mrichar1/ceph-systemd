@@ -35,7 +35,7 @@ PartOf=$CLUSTER-osd.target
 [Service]
 EnvironmentFile=-/etc/sysconfig/ceph
 ExecStart=/usr/bin/ceph-osd -f --cluster $CLUSTER --id $ID
-ExecStartPre=/usr/libexec/ceph/ceph-osd-prestart.sh --cluster $CLUSTER --id $ID
+ExecStartPre=/usr/lib/ceph/ceph-osd-prestart.sh --cluster $CLUSTER --id $ID
 LimitNOFILE=131072
 ExecReload=/bin/kill -HUP \$MAINPID
 
@@ -52,7 +52,7 @@ PartOf=$CLUSTER-osd.target
 [Service]
 EnvironmentFile=-/etc/sysconfig/ceph
 ExecStart=/usr/bin/ceph-osd -f --cluster $CLUSTER --id %i
-ExecStartPre=/usr/libexec/ceph/ceph-osd-prestart.sh --cluster $CLUSTER --id %i
+ExecStartPre=/usr/lib/ceph/ceph-osd-prestart.sh --cluster $CLUSTER --id %i
 LimitNOFILE=131072
 ExecReload=/bin/kill -HUP \$MAINPID
 

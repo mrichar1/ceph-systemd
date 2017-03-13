@@ -13,19 +13,19 @@ for CONF in /etc/ceph/ceph*.conf; do
   cat << EOF > $CLUSTER.target
 [Unit]
 Description=Ceph target allowing to start/stop all ceph*@.service instances at once
-Wants=$CLUSTER-mon.target $CLUSTER-osd.target
+Wants=$CLUSTER-mds.target $CLUSTER-mon.target $CLUSTER-osd.target
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-  for TYPE in osd mon; do
+  for TYPE in osd mds mon; do
     mkdir -p $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
     rm -f $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants/*
-    
+
     for DAEMON in $(ceph-conf -c $CONF -l $TYPE --filter-key-value host=`hostname -s`); do
         ID=${DAEMON##$TYPE.}
-        case $TYPE in 
+        case $TYPE in
             'osd')  cat << EOF > $CLUSTER-$TYPE@$ID.service
 [Unit]
 Description=Ceph object storage daemon
@@ -116,7 +116,52 @@ WantedBy=$CLUSTER.target
 EOF
 
             ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE@$ID.service -t $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
-            ;; 
+            ;;
+
+            'mds')  cat << EOF > $CLUSTER-$TYPE@$ID.service
+[Unit]
+Description=Ceph cluster mds daemon
+After=network-online.target local-fs.target
+Wants=network-online.target local-fs.target
+PartOf=$CLUSTER-mds.target
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/ceph
+ExecStart=/usr/bin/ceph-mds -f --cluster $CLUSTER --id $ID
+ExecReload=/bin/kill -HUP \$MAINPID
+
+[Install]
+WantedBy=$CLUSTER-mds.target
+EOF
+                    cat << EOF > $CLUSTER-$TYPE@.service
+[Unit]
+Description=Ceph cluster mds daemon
+After=network-online.target local-fs.target
+Wants=network-online.target local-fs.target
+PartOf=$CLUSTER-mds.target
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/ceph
+ExecStart=/usr/bin/ceph-mds -f --cluster $CLUSTER --id %i
+ExecReload=/bin/kill -HUP \$MAINPID
+
+[Install]
+WantedBy=$CLUSTER-mds.target
+EOF
+
+                    cat << EOF > $CLUSTER-$TYPE.target
+[Unit]
+Description=Ceph MDS target allowing to start/stop all Ceph mds daemons at once
+After=network-online.target local-fs.target
+PartOf=$CLUSTER.target
+
+[Install]
+WantedBy=$CLUSTER.target
+EOF
+
+            ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE@$ID.service -t $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
+            ;;
+
         esac
     done
   done

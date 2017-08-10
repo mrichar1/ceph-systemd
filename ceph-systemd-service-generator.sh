@@ -2,167 +2,26 @@
 SYSTEMD_ETC_DIR="/etc/systemd/system"
 SYSTEMD_USR_DIR="/usr/lib/systemd/system"
 
-cd $SYSTEMD_USR_DIR
-rm -f ceph-mon*.service
-rm -f ceph-osd*.service
-rm -f ceph*.target
-
+# Get cluster name by grabbing it from the config file name
 for CONF in /etc/ceph/ceph*.conf; do
   CLUSTER=${CONF##/etc/ceph/}
   CLUSTER=${CLUSTER%%.conf}
-  cat << EOF > $CLUSTER.target
-[Unit]
-Description=Ceph target allowing to start/stop all ceph*@.service instances at once
-Wants=$CLUSTER-mds.target $CLUSTER-mon.target $CLUSTER-osd.target
+done
 
-[Install]
-WantedBy=multi-user.target
-EOF
+# Set up 'wants' dirs for $CLUSTER.target
+mkdir -p $SYSTEMD_ETC_DIR/$CLUSTER.target.wants
 
-  for TYPE in osd mds mon; do
-    mkdir -p $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
-    rm -f $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants/*
+for TYPE in osd mds mon; do
+  # Create 'want' links for all ceph daemon targets to $CLUSTER.target
+  ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE.target $SYSTEMD_ETC_DIR/$CLUSTER.target.wants
 
-    for DAEMON in $(ceph-conf -c $CONF -l $TYPE --filter-key-value host=`hostname -s`); do
-        ID=${DAEMON##$TYPE.}
-        case $TYPE in
-            'osd')  cat << EOF > $CLUSTER-$TYPE@$ID.service
-[Unit]
-Description=Ceph object storage daemon
-After=$CLUSTER-mon.target
-Wants=$CLUSTER-mon.target
-PartOf=$CLUSTER-osd.target
+  # Set up 'wants' dirs for different daemon targets
+  mkdir -p $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
+  rm -f $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants/*
 
-[Service]
-EnvironmentFile=-/etc/sysconfig/ceph
-ExecStart=/usr/bin/ceph-osd -f --cluster $CLUSTER --id $ID
-ExecStartPre=/usr/lib/ceph/ceph-osd-prestart.sh --cluster $CLUSTER --id $ID
-LimitNOFILE=131072
-ExecReload=/bin/kill -HUP \$MAINPID
-
-[Install]
-WantedBy=$CLUSTER-osd.target
-EOF
-                    cat << EOF > $CLUSTER-$TYPE@.service
-[Unit]
-Description=Ceph object storage daemon
-After=$CLUSTER-mon.target
-Wants=$CLUSTER-mon.target
-PartOf=$CLUSTER-osd.target
-
-[Service]
-EnvironmentFile=-/etc/sysconfig/ceph
-ExecStart=/usr/bin/ceph-osd -f --cluster $CLUSTER --id %i
-ExecStartPre=/usr/lib/ceph/ceph-osd-prestart.sh --cluster $CLUSTER --id %i
-LimitNOFILE=131072
-ExecReload=/bin/kill -HUP \$MAINPID
-
-[Install]
-WantedBy=$CLUSTER-osd.target
-EOF
-
-                    cat << EOF > $CLUSTER-$TYPE.target
-[Unit]
-Description=Ceph OSD target allowing to start/stop all CEPH OSDs at once
-After=$CLUSTER-mon.target
-PartOf=$CLUSTER.target
-
-[Install]
-WantedBy=$CLUSTER.target
-EOF
-
-            ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE@$ID.service -t $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
-            ;;
-
-            'mon')  cat << EOF > $CLUSTER-$TYPE@$ID.service
-[Unit]
-Description=Ceph cluster monitor daemon
-After=network-online.target local-fs.target
-Wants=network-online.target local-fs.target
-PartOf=$CLUSTER-mon.target
-
-[Service]
-EnvironmentFile=-/etc/sysconfig/ceph
-ExecStart=/usr/bin/ceph-mon -f --cluster $CLUSTER --id $ID
-ExecReload=/bin/kill -HUP \$MAINPID
-
-[Install]
-WantedBy=$CLUSTER-mon.target
-EOF
-                    cat << EOF > $CLUSTER-$TYPE@.service
-[Unit]
-Description=Ceph cluster monitor daemon
-After=network-online.target local-fs.target
-Wants=network-online.target local-fs.target
-PartOf=$CLUSTER-mon.target
-
-[Service]
-EnvironmentFile=-/etc/sysconfig/ceph
-ExecStart=/usr/bin/ceph-mon -f --cluster $CLUSTER --id %i
-ExecReload=/bin/kill -HUP \$MAINPID
-
-[Install]
-WantedBy=$CLUSTER-mon.target
-EOF
-
-                    cat << EOF > $CLUSTER-$TYPE.target
-[Unit]
-Description=Ceph MON target allowing to start/stop all Ceph monitors at once
-After=network-online.target local-fs.target
-PartOf=$CLUSTER.target
-
-[Install]
-WantedBy=$CLUSTER.target
-EOF
-
-            ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE@$ID.service -t $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
-            ;;
-
-            'mds')  cat << EOF > $CLUSTER-$TYPE@$ID.service
-[Unit]
-Description=Ceph cluster mds daemon
-After=network-online.target local-fs.target
-Wants=network-online.target local-fs.target
-PartOf=$CLUSTER-mds.target
-
-[Service]
-EnvironmentFile=-/etc/sysconfig/ceph
-ExecStart=/usr/bin/ceph-mds -f --cluster $CLUSTER --id $ID
-ExecReload=/bin/kill -HUP \$MAINPID
-
-[Install]
-WantedBy=$CLUSTER-mds.target
-EOF
-                    cat << EOF > $CLUSTER-$TYPE@.service
-[Unit]
-Description=Ceph cluster mds daemon
-After=network-online.target local-fs.target
-Wants=network-online.target local-fs.target
-PartOf=$CLUSTER-mds.target
-
-[Service]
-EnvironmentFile=-/etc/sysconfig/ceph
-ExecStart=/usr/bin/ceph-mds -f --cluster $CLUSTER --id %i
-ExecReload=/bin/kill -HUP \$MAINPID
-
-[Install]
-WantedBy=$CLUSTER-mds.target
-EOF
-
-                    cat << EOF > $CLUSTER-$TYPE.target
-[Unit]
-Description=Ceph MDS target allowing to start/stop all Ceph mds daemons at once
-After=network-online.target local-fs.target
-PartOf=$CLUSTER.target
-
-[Install]
-WantedBy=$CLUSTER.target
-EOF
-
-            ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE@$ID.service -t $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants
-            ;;
-
-        esac
-    done
+  for DAEMON in $(ceph-conf -c $CONF -l $TYPE --filter-key-value host=`hostname -s`); do
+    ID=${DAEMON##$TYPE.}
+    # Create 'want' links for all daemon instances to their daemon targets
+    ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE@.service $SYSTEMD_ETC_DIR/$CLUSTER-$TYPE.target.wants/$CLUSTER-$TYPE@$ID.service
   done
 done

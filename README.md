@@ -5,7 +5,7 @@
 The idea is simple - let "systemctl daemon-reload" do all the job for us.
 
 **NOTE** The original version form which this repo is forked tries to control the creation of all osd/mon/mds units and targets.  However many of these are now delivered by theceph packages,or dynamically created (see e.g. ceph-disk@.service)
-Now, this generator serves to simply link all MDS and MON daemon instances to a daemon target, and link all targets to a top-level `ceph.target`
+Now, this generator serves to simply link all MDS, MGR and MON daemon instances to a daemon target, and link all targets to a top-level `ceph.target`
 
 **How to install it**:
 > ```This script must be placed under /usr/lib/systemd/system-generators folder. After that "systemctl daemon-reload" must be issued for systemd to execute generator script. The script gets executed every time systemd is 'daemon-reload'ed or at host boot time before any other service gets loaded (see systemd generators link above).```

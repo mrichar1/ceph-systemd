@@ -11,7 +11,7 @@ done
 # Set up 'wants' dir for $CLUSTER.target
 mkdir -p $SYSTEMD_ETC_DIR/$CLUSTER.target.wants
 
-for TYPE in mds mon osd; do
+for TYPE in mds mgr mon osd; do
   # All daemon targets should be wanted by $CLUSTER.target
   ln -s $SYSTEMD_USR_DIR/$CLUSTER-$TYPE.target $SYSTEMD_ETC_DIR/$CLUSTER.target.wants
 
